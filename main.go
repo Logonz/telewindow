@@ -2,14 +2,19 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/signal"
-	"time"
+	"syscall"
+	"telewindow/lumberjack"
 
 	"github.com/moutend/go-hook/pkg/keyboard"
 	"github.com/moutend/go-hook/pkg/types"
 	"golang.org/x/sys/windows"
 )
+
+var PixelBased bool = false
 
 // Constants for Windows API
 const (
@@ -27,6 +32,14 @@ const (
 	VK_MENU        = "VK_MENU"
 	HC_ACTION      = "HC_ACTION"
 	WM_QUIT        = "WM_QUIT"
+)
+
+// Direction constants
+const (
+	LeftDirection  = -1
+	RightDirection = 1
+	UpDirection    = -2
+	DownDirection  = 2
 )
 
 // Globals
@@ -62,30 +75,31 @@ func isRunningAsAdmin() bool {
 }
 
 func MoveActiveWindow(direction int) {
-	fmt.Printf("DEBUG: Entering MoveActiveWindow() with direction: %d\n", direction)
+	log.Printf("DEBUG: Entering MoveActiveWindow() with direction: %d\n", direction)
 	activeWindow, err := GetActiveWindow()
 	if err != nil {
-		fmt.Println("DEBUG: Error getting active window:", err)
+		log.Println("DEBUG: Error getting active window:", err)
 		return
 	}
 
 	rect, err := GetWindowRectWrapper(activeWindow)
 	if err != nil {
-		fmt.Println("DEBUG: Error getting window rect:", err)
+		log.Println("DEBUG: Error getting window rect:", err)
 		return
 	}
 
 	monitors, err := GetMonitors()
 	if err != nil {
-		fmt.Println("DEBUG: Error getting monitors:", err)
+		log.Println("DEBUG: Error getting monitors:", err)
 		return
 	}
 
 	if len(monitors) < 2 {
-		fmt.Println("DEBUG: Only one monitor detected.")
+		log.Println("DEBUG: Only one monitor detected.")
 		return
 	}
 
+	// Find the monitor that the window is currently on
 	var currentMonitor *Monitor
 	var maxOverlap int64 = 0
 
@@ -98,90 +112,103 @@ func MoveActiveWindow(direction int) {
 	}
 
 	if currentMonitor == nil {
-		fmt.Println("DEBUG: Current monitor not found.")
+		log.Println("DEBUG: Current monitor not found.")
 		return
 	}
-	fmt.Printf("DEBUG: Current monitor: %+v\n", currentMonitor.Info.RCMonitor)
+	log.Printf("DEBUG: Current monitor: %+v\n", currentMonitor.Info.RCMonitor)
 
-	var targetMonitor *Monitor
-	if direction == -1 { // Move left
-		for _, m := range monitors {
-			if m.Info.RCMonitor.Right == currentMonitor.Info.RCMonitor.Left {
-				targetMonitor = &m
-				break
-			}
-		}
-	} else if direction == 1 { // Move right
-		for _, m := range monitors {
-			if m.Info.RCMonitor.Left == currentMonitor.Info.RCMonitor.Right {
-				targetMonitor = &m
-				break
-			}
-		}
-	} else if direction == -2 { // Move up
-		for _, m := range monitors {
-			if m.Info.RCMonitor.Bottom == currentMonitor.Info.RCMonitor.Top {
-				targetMonitor = &m
-				break
-			}
-		}
-	} else if direction == 2 { // Move down
-		for _, m := range monitors {
-			if m.Info.RCMonitor.Top == currentMonitor.Info.RCMonitor.Bottom {
-				targetMonitor = &m
-				break
-			}
-		}
-	}
-
+	// Find the monitor in the desired direction
+	targetMonitor := findTargetMonitor(monitors, currentMonitor, direction)
 	if targetMonitor == nil {
-		fmt.Println("DEBUG: Target monitor not found.")
+		log.Println("DEBUG: No monitor found in the desired direction.")
 		return
 	}
-	fmt.Printf("DEBUG: Target monitor: %+v\n", targetMonitor.Info.RCMonitor)
+	log.Printf("DEBUG: Target monitor: %+v\n", targetMonitor.Info.RCMonitor)
 
-	width := rect.Right - rect.Left
-	height := rect.Bottom - rect.Top
+	// Calculate the new window position
+	var newX int32
+	var newY int32
+	var newWidth int32
+	var newHeight int32
 
-	relativeX := rect.Left - currentMonitor.Info.RCMonitor.Left
-	relativeY := rect.Top - currentMonitor.Info.RCMonitor.Top
+	if PixelBased {
+		// Calculate the window's current size and position pixel based
+		newWidth = rect.Right - rect.Left
+		newHeight = rect.Bottom - rect.Top
 
-	newX := targetMonitor.Info.RCMonitor.Left + relativeX
-	newY := targetMonitor.Info.RCMonitor.Top + relativeY
+		relativeX := rect.Left - currentMonitor.Info.RCMonitor.Left
+		relativeY := rect.Top - currentMonitor.Info.RCMonitor.Top
 
-	fmt.Printf("DEBUG: New window position: x=%d, y=%d, width=%d, height=%d\n", newX, newY, width, height)
+		// Pixel based calculation
+		newX = targetMonitor.Info.RCMonitor.Left + relativeX
+		newY = targetMonitor.Info.RCMonitor.Top + relativeY
+	} else {
+		// Calculate the percentage of the window's size relative to the current monitor
+		currentMonitorWidth := float64(currentMonitor.Info.RCMonitor.Right - currentMonitor.Info.RCMonitor.Left)
+		currentMonitorHeight := float64(currentMonitor.Info.RCMonitor.Bottom - currentMonitor.Info.RCMonitor.Top)
+		windowWidth := float64(rect.Right - rect.Left)
+		windowHeight := float64(rect.Bottom - rect.Top)
 
+		widthPercentage := windowWidth / currentMonitorWidth
+		heightPercentage := windowHeight / currentMonitorHeight
+
+		// Calculate the new size based on the target monitor's dimensions
+		targetMonitorWidth := float64(targetMonitor.Info.RCMonitor.Right - targetMonitor.Info.RCMonitor.Left)
+		targetMonitorHeight := float64(targetMonitor.Info.RCMonitor.Bottom - targetMonitor.Info.RCMonitor.Top)
+
+		newWidth = int32(widthPercentage * targetMonitorWidth)
+		newHeight = int32(heightPercentage * targetMonitorHeight)
+
+		// Calculate the new position
+		relativeXPercentage := float64(rect.Left-currentMonitor.Info.RCMonitor.Left) / currentMonitorWidth
+		relativeYPercentage := float64(rect.Top-currentMonitor.Info.RCMonitor.Top) / currentMonitorHeight
+
+		// Percentage based calculation
+		newX = targetMonitor.Info.RCMonitor.Left + int32(relativeXPercentage*targetMonitorWidth)
+		newY = targetMonitor.Info.RCMonitor.Top + int32(relativeYPercentage*targetMonitorHeight)
+	}
+
+	log.Printf("DEBUG: New window position: x=%d, y=%d, width=%d, height=%d\n", newX, newY, newWidth, newHeight)
+
+	// Move the window
 	ret, _, err := procMoveWindow.Call(
 		uintptr(activeWindow),
 		uintptr(newX),
 		uintptr(newY),
-		uintptr(width),
-		uintptr(height),
+		uintptr(newWidth),
+		uintptr(newHeight),
 		1, // Repaint
 	)
 	if ret == 0 {
-		fmt.Println("DEBUG: MoveWindow failed:", err)
+		log.Println("DEBUG: MoveWindow failed:", err)
 		return
 	}
 
-	fmt.Println("DEBUG: Window moved successfully.")
+	log.Println("DEBUG: Window moved successfully.")
 }
 
 func main() {
+	// Create a multi-writer that writes to both file and stdout
+	multiWriter := io.MultiWriter(os.Stdout, &lumberjack.Logger{
+		Filename:   "./telewindow.log",
+		MaxSize:    1, // megabytes
+		MaxBackups: 3,
+		MaxAge:     28,    //days
+		Compress:   false, // disabled by default
+	})
+
+	// Set the output of the default logger to the multi-writer
+	log.SetOutput(multiWriter)
+
 	// Detect if we are running as admininstrator
 	if !isRunningAsAdmin() {
-		fmt.Println("WARNING: Not running as administrator. Some features may not work correctly. Such as keyboard hooking in administrative windows.")
+		log.Println("WARNING: Not running as administrator. Some features may not work correctly. Such as keyboard hooking in administrative windows.")
 	}
 
-	go keyboardHook()
+	log.Println("Window manager is running. Press Ctrl+C to exit.")
+	keyboardHook()
 
-	fmt.Println("Window manager is running. Press Ctrl+C to exit.")
-
-	// Handle graceful shutdown on Ctrl+C
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
-	fmt.Println("\nExiting...")
+	log.Println("\nExiting...")
 }
 
 func keyboardHook() error {
@@ -195,46 +222,45 @@ func keyboardHook() error {
 	defer keyboard.Uninstall()
 
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
 	keyDownMap := make(map[string]bool)
 
 	for {
 		select {
-		case <-time.After(5 * time.Minute):
-			fmt.Println("Received timeout signal")
-			return nil
 		case <-signalChan:
-			fmt.Println("Received shutdown signal")
+			log.Println("Received shutdown signal")
 			return nil
 		case k := <-keyboardChan:
-			// fmt.Printf("Received %v %v\n", k.Message, k.VKCode)
+			// log.Printf("Received %v %v\n", k.Message, k.VKCode)
+			msg := fmt.Sprint(k.Message)
+			key := fmt.Sprint(k.VKCode)
 
-			down := fmt.Sprint(k.Message) == WM_KEYDOWN || fmt.Sprint(k.Message) == WM_SYSKEYDOWN
-			up := fmt.Sprint(k.Message) == WM_KEYUP
+			down := msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN
+			up := msg == WM_KEYUP
 
 			ctrlDown := keyDownMap[VK_LCONTROL] || keyDownMap[VK_RCONTROL]
 
-			if down && !keyDownMap[fmt.Sprint(k.VKCode)] {
-				// fmt.Printf("Down %v\n", k.VKCode)
-				keyDownMap[fmt.Sprint(k.VKCode)] = true
+			if down && !keyDownMap[key] {
+				// log.Printf("Down %v\n", k.VKCode)
+				keyDownMap[key] = true
 				// If control and right arrow are pressed
 				if ctrlDown && keyDownMap[VK_RIGHT] {
-					fmt.Println("Hotkey Move Right Pressed")
-					MoveActiveWindow(1)
+					log.Println("Hotkey Move Right Pressed")
+					MoveActiveWindow(RightDirection)
 				} else if ctrlDown && keyDownMap[VK_LEFT] {
-					fmt.Println("Hotkey Move Left Pressed")
-					MoveActiveWindow(-1)
+					log.Println("Hotkey Move Left Pressed")
+					MoveActiveWindow(LeftDirection)
 				} else if ctrlDown && keyDownMap[VK_UP] {
-					fmt.Println("Hotkey Move Up Pressed")
-					MoveActiveWindow(-2)
+					log.Println("Hotkey Move Up Pressed")
+					MoveActiveWindow(UpDirection)
 				} else if ctrlDown && keyDownMap[VK_DOWN] {
-					fmt.Println("Hotkey Move Down Pressed")
-					MoveActiveWindow(2)
+					log.Println("Hotkey Move Down Pressed")
+					MoveActiveWindow(DownDirection)
 				}
-			} else if up && keyDownMap[fmt.Sprint(k.VKCode)] {
-				// fmt.Printf("Up %v\n", k.VKCode)
-				keyDownMap[fmt.Sprint(k.VKCode)] = false
+			} else if up && keyDownMap[key] {
+				// log.Printf("Up %v\n", k.VKCode)
+				keyDownMap[key] = false
 			}
 			continue
 
