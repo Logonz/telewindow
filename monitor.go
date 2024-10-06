@@ -14,6 +14,22 @@ type Monitor struct {
 	Info     MONITORINFO
 }
 
+// Structures
+type POINT struct {
+	X, Y int32
+}
+
+type RECT struct {
+	Left, Top, Right, Bottom int32
+}
+
+type MONITORINFO struct {
+	CbSize    uint32
+	RCMonitor RECT
+	RCWork    RECT
+	DwFlags   uint32
+}
+
 func GetMonitors() ([]Monitor, error) {
 	fmt.Println("DEBUG: Entering GetMonitors()")
 	var monitors []Monitor

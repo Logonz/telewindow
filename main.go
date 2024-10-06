@@ -29,41 +29,6 @@ const (
 	WM_QUIT        = "WM_QUIT"
 )
 
-// Structures
-type POINT struct {
-	X, Y int32
-}
-
-type RECT struct {
-	Left, Top, Right, Bottom int32
-}
-
-type MONITORINFO struct {
-	CbSize    uint32
-	RCMonitor RECT
-	RCWork    RECT
-	DwFlags   uint32
-}
-
-// Define the MSG structure since it's not in golang.org/x/sys/windows
-type MSG struct {
-	HWnd    windows.Handle
-	Message uint32
-	WParam  uintptr
-	LParam  uintptr
-	Time    uint32
-	Pt      POINT
-}
-
-// KBDLLHOOKSTRUCT Structure
-type KBDLLHOOKSTRUCT struct {
-	VkCode    uint32
-	ScanCode  uint32
-	Flags     uint32
-	Time      uint32
-	ExtraInfo uintptr
-}
-
 // Globals
 var (
 	user32                  = windows.NewLazySystemDLL("user32.dll")
@@ -73,6 +38,28 @@ var (
 	procEnumDisplayMonitors = user32.NewProc("EnumDisplayMonitors")
 	procGetMonitorInfo      = user32.NewProc("GetMonitorInfoW")
 )
+
+func isRunningAsAdmin() bool {
+	var sid *windows.SID
+	err := windows.AllocateAndInitializeSid(
+		&windows.SECURITY_NT_AUTHORITY,
+		2,
+		windows.SECURITY_BUILTIN_DOMAIN_RID,
+		windows.DOMAIN_ALIAS_RID_ADMINS,
+		0, 0, 0, 0, 0, 0,
+		&sid)
+	if err != nil {
+		return false
+	}
+	defer windows.FreeSid(sid)
+
+	token := windows.Token(0)
+	member, err := token.IsMember(sid)
+	if err != nil {
+		return false
+	}
+	return member
+}
 
 func MoveActiveWindow(direction int) {
 	fmt.Printf("DEBUG: Entering MoveActiveWindow() with direction: %d\n", direction)
@@ -181,6 +168,11 @@ func MoveActiveWindow(direction int) {
 }
 
 func main() {
+	// Detect if we are running as admininstrator
+	if !isRunningAsAdmin() {
+		fmt.Println("WARNING: Not running as administrator. Some features may not work correctly. Such as keyboard hooking in administrative windows.")
+	}
+
 	go keyboardHook()
 
 	fmt.Println("Window manager is running. Press Ctrl+C to exit.")
@@ -204,8 +196,6 @@ func keyboardHook() error {
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
-
-	fmt.Println("start capturing keyboard input")
 
 	keyDownMap := make(map[string]bool)
 
