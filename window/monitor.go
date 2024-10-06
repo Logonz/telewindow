@@ -1,4 +1,4 @@
-package main
+package window
 
 import (
 	"fmt"
@@ -8,6 +8,13 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+)
+
+var (
+	procGetForegroundWindow = user32.NewProc("GetForegroundWindow")
+	procGetWindowRect       = user32.NewProc("GetWindowRect")
+	procEnumDisplayMonitors = user32.NewProc("EnumDisplayMonitors")
+	procGetMonitorInfo      = user32.NewProc("GetMonitorInfoW")
 )
 
 // Monitor information

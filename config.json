@@ -1,0 +1,33 @@
+{
+  "a-comment": "COMMENT: Should the application start if the user is not an admin (The hook might not work correctly if the user is not an admin)",
+  "allowNonAdmin": true,
+  "s-comment": "COMMENT: Should the size be pixel based or percentage based",
+  "sizeByPixel": false,
+  "kb-comment": "COMMENT: Keybindings for the different actions",
+  "keyBindings": {
+    "moveRight": {
+      "ctrl": true,
+      "alt": true,
+      "shift": false,
+      "key": "VK_NUMPAD6"
+    },
+    "moveLeft": {
+      "ctrl": true,
+      "alt": true,
+      "shift": false,
+      "key": "VK_NUMPAD4"
+    },
+    "moveUp": {
+      "ctrl": true,
+      "alt": true,
+      "shift": false,
+      "key": "VK_NUMPAD8"
+    },
+    "moveDown": {
+      "ctrl": true,
+      "alt": true,
+      "shift": false,
+      "key": "VK_NUMPAD2"
+    }
+  }
+}
