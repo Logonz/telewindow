@@ -18,34 +18,6 @@ func min(a, b int32) int32 {
 	return b
 }
 
-func relaunchAsAdmin() error {
-	exe, err := os.Executable()
-	if err != nil {
-		return err
-	}
-
-	verb := "runas"
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	args := strings.Join(os.Args[1:], " ")
-
-	operation, _ := syscall.UTF16PtrFromString(verb)
-	file, _ := syscall.UTF16PtrFromString(exe)
-	parameters, _ := syscall.UTF16PtrFromString(args)
-	directory, _ := syscall.UTF16PtrFromString(cwd)
-	showCmd := int32(1) // SW_NORMAL
-
-	err = windows.ShellExecute(0, operation, file, parameters, directory, showCmd)
-	if err != nil && err.Error() != "The operation completed successfully." {
-		return err
-	}
-
-	return nil
-}
-
 func isRunningAsAdmin() bool {
 	var sid *windows.SID
 	err := windows.AllocateAndInitializeSid(

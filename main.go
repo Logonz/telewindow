@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"io"
 	"log"
@@ -9,12 +10,17 @@ import (
 	"syscall"
 	"telewindow/lumberjack"
 
+	"github.com/getlantern/systray"
 	"github.com/moutend/go-hook/pkg/keyboard"
 	"github.com/moutend/go-hook/pkg/types"
 	"golang.org/x/sys/windows"
 )
 
+//go:embed assets/dock-window-light.ico
+var iconData []byte
+
 var PixelBased bool = false
+var signalChan chan os.Signal = make(chan os.Signal, 1)
 
 // Constants for Windows API
 const (
@@ -181,15 +187,21 @@ func main() {
 	// Detect if we are running as admininstrator
 	if !isRunningAsAdmin() {
 		log.Println("WARNING: Not running as administrator. Some features may not work correctly. Such as keyboard hooking in administrative windows.")
+		// fmt.Println("This application needs to run as administrator.")
+		// err := relaunchAsAdmin()
+		// if err != nil {
+		// 	fmt.Println("Failed to restart as administrator:", err)
+		// 	os.Exit(1)
+		// }
+		// os.Exit(0) // Exit current instance
 	}
 
-	log.Println("Window manager is running. Press Ctrl+C to exit.")
-	keyboardHook()
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
-	log.Println("\nExiting...")
+	systray.Run(onReady, onExit)
 }
 
-func keyboardHook() error {
+func keyboardHook(signalChan chan os.Signal) error {
 	// Buffer size is depends on your need. The 100 is placeholder value.
 	keyboardChan := make(chan types.KeyboardEvent, 100)
 
@@ -198,9 +210,6 @@ func keyboardHook() error {
 	}
 
 	defer keyboard.Uninstall()
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
 	keyDownMap := make(map[string]bool)
 
@@ -244,4 +253,32 @@ func keyboardHook() error {
 
 		}
 	}
+}
+
+func onReady() {
+	// Set the icon (optional)
+	systray.SetIcon(iconData)
+	systray.SetTooltip("TeleWindow Service")
+
+	mQuit := systray.AddMenuItem("Quit", "Quit the application")
+	go func() {
+		select {
+		case <-mQuit.ClickedCh:
+			log.Println("Quit menu item clicked.")
+			signalChan <- syscall.SIGTERM
+		case <-signalChan:
+			log.Println("Interrupt signal received.")
+		}
+		log.Println("Quitting TeleWindow.")
+		systray.Quit()
+		os.Exit(0)
+	}()
+
+	log.Println("Window manager is running. Press Ctrl+C to exit.")
+	go keyboardHook(signalChan)
+}
+
+func onExit() {
+	// Cleanup tasks
+	log.Println("TeleWindow exited.")
 }
