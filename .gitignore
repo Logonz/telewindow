@@ -1,0 +1,6 @@
+*.zip
+*.log
+*.exe
+*.lnk
+
+build
