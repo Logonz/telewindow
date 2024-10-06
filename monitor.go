@@ -74,10 +74,6 @@ func GetMonitors() ([]Monitor, error) {
 			log.Println("DEBUG: GetMonitorInfo failed, continuing enumeration")
 			return 1 // Continue enumeration
 		}
-		// monitors = append(monitors, Monitor{
-		// 	HMonitor: hMonitor,
-		// 	Info:     mi,
-		// })
 		monitors = append(monitors, Monitor{
 			HMonitor: hMonitor,
 			Info:     mi,

@@ -52,28 +52,6 @@ var (
 	procGetMonitorInfo      = user32.NewProc("GetMonitorInfoW")
 )
 
-func isRunningAsAdmin() bool {
-	var sid *windows.SID
-	err := windows.AllocateAndInitializeSid(
-		&windows.SECURITY_NT_AUTHORITY,
-		2,
-		windows.SECURITY_BUILTIN_DOMAIN_RID,
-		windows.DOMAIN_ALIAS_RID_ADMINS,
-		0, 0, 0, 0, 0, 0,
-		&sid)
-	if err != nil {
-		return false
-	}
-	defer windows.FreeSid(sid)
-
-	token := windows.Token(0)
-	member, err := token.IsMember(sid)
-	if err != nil {
-		return false
-	}
-	return member
-}
-
 func MoveActiveWindow(direction int) {
 	log.Printf("DEBUG: Entering MoveActiveWindow() with direction: %d\n", direction)
 	activeWindow, err := GetActiveWindow()
@@ -192,7 +170,7 @@ func main() {
 	multiWriter := io.MultiWriter(os.Stdout, &lumberjack.Logger{
 		Filename:   "./telewindow.log",
 		MaxSize:    1, // megabytes
-		MaxBackups: 3,
+		MaxBackups: 5,
 		MaxAge:     28,    //days
 		Compress:   false, // disabled by default
 	})
