@@ -56,6 +56,7 @@ type Config struct {
 		SplitRight     KeyBinding `json:"splitRight"`
 		SplitUp        KeyBinding `json:"splitUp"`
 		SplitDown      KeyBinding `json:"splitDown"`
+		RestoreWindow  KeyBinding `json:"restoreWindow"`
 	} `json:"keyBindings"`
 }
 

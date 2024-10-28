@@ -171,10 +171,10 @@ func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 						}
 						if maximized {
 							log.Println("Window is maximized, restoring window.")
-							window.RestoreActiveWindow(nil)
+							window.RestoreActiveWindow(nil, false)
 						} else {
 							log.Println("Window is not maximized, maximizing window.")
-							window.MaximizeActiveWindow(nil)
+							window.MaximizeActiveWindow(nil, false)
 						}
 						lastMove = time.Now()
 					} else if config.KeyBindings.SplitLeft.Down(keyDownMap) {
@@ -192,6 +192,10 @@ func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 					} else if config.KeyBindings.SplitDown.Down(keyDownMap) {
 						log.Println("Hotkey Split Down Pressed")
 						window.SplitActiveWindow(DownDirection)
+						lastMove = time.Now()
+					} else if config.KeyBindings.RestoreWindow.Down(keyDownMap) {
+						log.Println("Hotkey Restore Window Pressed")
+						window.RRestoreActiveWindow(nil, false)
 						lastMove = time.Now()
 					}
 				}

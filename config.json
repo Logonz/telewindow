@@ -57,6 +57,12 @@
       "ctrl": true,
       "alt": true,
       "shift": true,
+      "key": "VK_NUMPAD2-DISABLED"
+    },
+    "restoreWindow": {
+      "ctrl": true,
+      "alt": true,
+      "shift": true,
       "key": "VK_NUMPAD2"
     }
   }
