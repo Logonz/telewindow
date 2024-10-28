@@ -140,7 +140,7 @@ func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 
 			keyDownMapMutex.Lock()
 			if down && !keyDownMap[key] {
-				log.Printf("Down %v\n", k.VKCode)
+				// log.Printf("Down %v\n", k.VKCode)
 				keyDownMap[key] = true
 
 				// If control and right arrow are pressed
@@ -160,6 +160,22 @@ func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 					} else if config.KeyBindings.MoveDown.Down(keyDownMap) {
 						log.Println("Hotkey Move Down Pressed")
 						window.MoveActiveWindow(DownDirection)
+						lastMove = time.Now()
+					} else if config.KeyBindings.ToggleMaximize.Down(keyDownMap) {
+						log.Println("Hotkey Toggle Maximize Pressed")
+						maximized, err := window.IsActiveWindowMaximized(nil)
+						if err != nil {
+							log.Println("Error checking if window is maximized:", err)
+							continue
+						}
+						if maximized {
+							log.Println("Window is maximized, restoring window.")
+							window.RestoreActiveWindow(nil)
+						} else {
+							log.Println("Window is not maximized, maximizing window.")
+							window.MaximizeActiveWindow(nil)
+						}
+
 						lastMove = time.Now()
 					}
 				}

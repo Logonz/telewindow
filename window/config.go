@@ -28,13 +28,13 @@ func (kb KeyBinding) Down(keyDownMap map[string]bool) bool {
 	ctrlDown := keyDownMap[VK_LCONTROL] || keyDownMap[VK_RCONTROL] || keyDownMap[VK_CONTROL]
 	altDown := keyDownMap[VK_LMENU] || keyDownMap[VK_RMENU] || keyDownMap[VK_MENU]
 	shiftDown := keyDownMap[VK_LSHIFT] || keyDownMap[VK_RSHIFT] || keyDownMap[VK_SHIFT]
-	if kb.Ctrl && !ctrlDown {
+	if kb.Ctrl == !ctrlDown {
 		return false
 	}
-	if kb.Alt && !altDown {
+	if kb.Alt == !altDown {
 		return false
 	}
-	if kb.Shift && !shiftDown {
+	if kb.Shift == !shiftDown {
 		return false
 	}
 	if !keyDownMap[kb.Key] {
@@ -47,10 +47,11 @@ type Config struct {
 	AllowNonAdmin bool `json:"allowNonAdmin"`
 	SizeByPixel   bool `json:"sizeByPixel"`
 	KeyBindings   struct {
-		MoveRight KeyBinding `json:"moveRight"`
-		MoveLeft  KeyBinding `json:"moveLeft"`
-		MoveUp    KeyBinding `json:"moveUp"`
-		MoveDown  KeyBinding `json:"moveDown"`
+		MoveRight      KeyBinding `json:"moveRight"`
+		MoveLeft       KeyBinding `json:"moveLeft"`
+		MoveUp         KeyBinding `json:"moveUp"`
+		MoveDown       KeyBinding `json:"moveDown"`
+		ToggleMaximize KeyBinding `json:"toggleMaximize"`
 	} `json:"keyBindings"`
 }
 

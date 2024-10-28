@@ -2,6 +2,7 @@ package window
 
 import (
 	"log"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -11,9 +12,52 @@ var SizeByPixel bool = false
 
 // Globals
 var (
-	user32         = windows.NewLazySystemDLL("user32.dll")
-	procMoveWindow = user32.NewProc("MoveWindow")
+	user32                 = windows.NewLazySystemDLL("user32.dll")
+	procMoveWindow         = user32.NewProc("MoveWindow")
+	procShowWindow         = user32.NewProc("ShowWindow")
+	procGetWindowPlacement = user32.NewProc("GetWindowPlacement")
+	// procSetWindowPos       = user32.NewProc("SetWindowPos")
+	// procSetWindowPlacement = user32.NewProc("SetWindowPlacement")
+	// procSendMessage        = user32.NewProc("SendMessageW")
+	// procInvalidateRect     = user32.NewProc("InvalidateRect")
+	// procUpdateWindow       = user32.NewProc("UpdateWindow")
 )
+
+const (
+	// ShowWindow commands
+	SW_MAXIMIZE = 3
+	SW_RESTORE  = 9
+
+	// ShowWindow flags
+	SW_SHOWMAXIMIZED = 3
+	SW_SHOWNORMAL    = 1
+	SW_SHOWMINIMIZED = 2
+
+	// SetWindowPos flags
+	SWP_NOZORDER       = 0x0004
+	SWP_NOACTIVATE     = 0x0010
+	SWP_NOSENDCHANGING = 0x0400
+	SWP_NOREDRAW       = 0x0008
+	SWP_ASYNCWINDOWPOS = 0x4000
+	SWP_NOSIZE         = 0x0001
+	SWP_NOMOVE         = 0x0002
+
+	// WM_SETREDRAW message
+	WM_SETREDRAW = 0x000B
+
+	// WPF
+	WPF_SETMINPOSITION     = 0x0001
+	WPF_RESTORETOMAXIMIZED = 0x0002
+)
+
+type WINDOWPLACEMENT struct {
+	Length           uint32
+	Flags            uint32
+	ShowCmd          uint32
+	PtMinPosition    Point
+	PtMaxPosition    Point
+	RcNormalPosition RECT
+}
 
 func MoveActiveWindow(direction int) {
 	log.Printf("DEBUG: Entering MoveActiveWindow() with direction: %d\n", direction)
@@ -111,6 +155,24 @@ func MoveActiveWindow(direction int) {
 
 	log.Printf("DEBUG: New window position: x=%d, y=%d, width=%d, height=%d\n", newX, newY, newWidth, newHeight)
 
+	maximized, err := IsActiveWindowMaximized(&activeWindow)
+	if err != nil {
+		log.Println("DEBUG: Error checking if window is maximized:", err)
+		return
+	}
+	if maximized {
+		log.Println("DEBUG: Window is maximized, restoring window.")
+		RestoreActiveWindow(&activeWindow)
+
+		// Shrink the window by 5% and the newX and newY to make it centered
+		amount := 0.02 // Percentage
+		newWidth = int32(float64(newWidth) * (1 - amount))
+		newHeight = int32(float64(newHeight) * (1 - amount))
+		newX = newX + int32(float64(newWidth)*amount/2)
+		newY = newY + int32(float64(newHeight)*amount/2)
+	}
+
+	log.Println("DEBUG: Moving window.")
 	// Move the window
 	ret, _, err := procMoveWindow.Call(
 		uintptr(activeWindow),
@@ -125,5 +187,124 @@ func MoveActiveWindow(direction int) {
 		return
 	}
 
+	if maximized {
+		log.Println("DEBUG: Window was maximized, maximizing window again.")
+		MaximizeActiveWindow(&activeWindow)
+	}
+
 	log.Println("DEBUG: Window moved successfully.")
+}
+
+func MaximizeActiveWindow(specificWindow *windows.Handle) {
+	log.Println("DEBUG: Entering MaximizeActiveWindow()")
+	var window windows.Handle
+	if specificWindow == nil {
+		activeWindow, err := GetActiveWindow()
+		if err != nil {
+			log.Println("DEBUG: Error getting active window:", err)
+			return
+		} else {
+			window = activeWindow
+		}
+	} else {
+		window = *specificWindow
+	}
+
+	ret, _, err := procShowWindow.Call(
+		uintptr(window),
+		uintptr(SW_MAXIMIZE),
+	)
+	if ret == 0 {
+		log.Println("MaximizeActiveWindow", "DEBUG: ShowWindow failed:", err)
+		return
+	}
+	log.Println("DEBUG: Window maximized successfully.")
+}
+
+func RestoreActiveWindow(specificWindow *windows.Handle) {
+	log.Println("DEBUG: Entering RestoreActiveWindow()")
+	var window windows.Handle
+	if specificWindow == nil {
+		activeWindow, err := GetActiveWindow()
+		if err != nil {
+			log.Println("DEBUG: Error getting active window:", err)
+			return
+		} else {
+			window = activeWindow
+		}
+	} else {
+		window = *specificWindow
+	}
+
+	ret, _, err := procShowWindow.Call(
+		uintptr(window),
+		uintptr(SW_RESTORE),
+	)
+	if ret == 0 {
+		log.Println("RestoreActiveWindow", "DEBUG: ShowWindow failed:", ret, err)
+		return
+	}
+	log.Println("DEBUG: Window restored successfully.")
+}
+
+func IsActiveWindowMaximized(specificWindow *windows.Handle) (bool, error) {
+	log.Println("DEBUG: Entering IsActiveWindowMaximized()")
+	var window windows.Handle
+	if specificWindow == nil {
+		activeWindow, err := GetActiveWindow()
+		if err != nil {
+			log.Println("DEBUG: Error getting active window:", err)
+			return false, err
+		} else {
+			window = activeWindow
+		}
+	} else {
+		window = *specificWindow
+	}
+
+	var wp WINDOWPLACEMENT
+	wp.Length = uint32(unsafe.Sizeof(wp))
+
+	ret, _, err := procGetWindowPlacement.Call(
+		uintptr(window),
+		uintptr(unsafe.Pointer(&wp)),
+	)
+	if ret == 0 {
+		log.Println("DEBUG: GetWindowPlacement failed:", err)
+		return false, err
+	}
+
+	log.Printf("DEBUG: Window show command: %d\n", wp.ShowCmd)
+	return wp.ShowCmd == SW_SHOWMAXIMIZED, nil
+}
+
+func IsActiveWindowMinimized(specificWindow *windows.Handle) (bool, error) {
+	log.Println("DEBUG: Entering IsActiveWindowMinimized()")
+	var window windows.Handle
+	if specificWindow == nil {
+		activeWindow, err := GetActiveWindow()
+		if err != nil {
+			log.Println("DEBUG: Error getting active window:", err)
+			return false, err
+		} else {
+			window = activeWindow
+		}
+	} else {
+		window = *specificWindow
+	}
+
+	var wp WINDOWPLACEMENT
+	wp.Length = uint32(unsafe.Sizeof(wp))
+
+	ret, _, err := procGetWindowPlacement.Call(
+		uintptr(window),
+		uintptr(unsafe.Pointer(&wp)),
+	)
+	if ret == 0 {
+		log.Println("DEBUG: GetWindowPlacement failed:", err)
+		return false, err
+	}
+
+	log.Printf("DEBUG: Window show command: %d\n", wp.ShowCmd)
+	return wp.ShowCmd == SW_SHOWMINIMIZED, nil
 }

@@ -28,6 +28,12 @@
       "alt": true,
       "shift": false,
       "key": "VK_NUMPAD2"
+    },
+    "toggleMaximize": {
+      "ctrl": true,
+      "alt": true,
+      "shift": true,
+      "key": "VK_NUMPAD8"
     }
   }
 }
