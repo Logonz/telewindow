@@ -142,6 +142,7 @@ func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 			if down && !keyDownMap[key] {
 				// log.Printf("Down %v\n", k.VKCode)
 				keyDownMap[key] = true
+				// fmt.Println(keyDownMap)
 
 				// If control and right arrow are pressed
 				if time.Since(lastMove) > 50*time.Millisecond {
@@ -175,7 +176,22 @@ func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 							log.Println("Window is not maximized, maximizing window.")
 							window.MaximizeActiveWindow(nil)
 						}
-
+						lastMove = time.Now()
+					} else if config.KeyBindings.SplitLeft.Down(keyDownMap) {
+						log.Println("Hotkey Split Left Pressed")
+						window.SplitActiveWindow(LeftDirection)
+						lastMove = time.Now()
+					} else if config.KeyBindings.SplitRight.Down(keyDownMap) {
+						log.Println("Hotkey Split Right Pressed")
+						window.SplitActiveWindow(RightDirection)
+						lastMove = time.Now()
+					} else if config.KeyBindings.SplitUp.Down(keyDownMap) {
+						log.Println("Hotkey Split Up Pressed")
+						window.SplitActiveWindow(UpDirection)
+						lastMove = time.Now()
+					} else if config.KeyBindings.SplitDown.Down(keyDownMap) {
+						log.Println("Hotkey Split Down Pressed")
+						window.SplitActiveWindow(DownDirection)
 						lastMove = time.Now()
 					}
 				}

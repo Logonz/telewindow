@@ -52,6 +52,10 @@ type Config struct {
 		MoveUp         KeyBinding `json:"moveUp"`
 		MoveDown       KeyBinding `json:"moveDown"`
 		ToggleMaximize KeyBinding `json:"toggleMaximize"`
+		SplitLeft      KeyBinding `json:"splitLeft"`
+		SplitRight     KeyBinding `json:"splitRight"`
+		SplitUp        KeyBinding `json:"splitUp"`
+		SplitDown      KeyBinding `json:"splitDown"`
 	} `json:"keyBindings"`
 }
 

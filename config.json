@@ -34,6 +34,30 @@
       "alt": true,
       "shift": true,
       "key": "VK_NUMPAD8"
+    },
+    "splitLeft": {
+      "ctrl": true,
+      "alt": true,
+      "shift": true,
+      "key": "VK_NUMPAD4"
+    },
+    "splitRight": {
+      "ctrl": true,
+      "alt": true,
+      "shift": true,
+      "key": "VK_NUMPAD6"
+    },
+    "splitUp": {
+      "ctrl": true,
+      "alt": true,
+      "shift": true,
+      "key": "VK_NUMPAD8-DISABLED"
+    },
+    "splitDown": {
+      "ctrl": true,
+      "alt": true,
+      "shift": true,
+      "key": "VK_NUMPAD2"
     }
   }
 }
