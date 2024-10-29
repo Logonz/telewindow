@@ -21,13 +21,13 @@
       "ctrl": true,
       "alt": true,
       "shift": false,
-      "key": "VK_NUMPAD8"
+      "key": "VK_NUMPAD8-DISABLED"
     },
     "moveDown": {
       "ctrl": true,
       "alt": true,
       "shift": false,
-      "key": "VK_NUMPAD2"
+      "key": "VK_NUMPAD2-DISABLED"
     },
     "toggleMaximize": {
       "ctrl": true,
