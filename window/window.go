@@ -368,10 +368,13 @@ func SplitActiveWindow(direction int) {
 		if natural {
 			log.Println("DEBUG: Window position and size is not set by this program, saving.", rect)
 			lastNatualRects[activeWindow] = &NatrualRect{lastNatualRect: rect, monitor: currentMonitor}
+			// Record the natural size before moving
+			RecordWindowSize(activeWindow, rect)
 		}
 	} else {
 		log.Println("DEBUG: Window position and size is not set by this program, saving.", rect)
 		lastNatualRects[activeWindow] = &NatrualRect{lastNatualRect: rect, monitor: currentMonitor}
+		RecordWindowSize(activeWindow, rect)
 	}
 
 	// 6. Move and resize the window
