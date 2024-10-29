@@ -66,11 +66,11 @@ func calculateOverlap(windowRect *RECT, monitorRect *RECT) int64 {
 }
 
 func GetMonitors() ([]Monitor, error) {
-	log.Println("DEBUG: Entering GetMonitors()")
+	// log.Println("DEBUG: Entering GetMonitors()")
 	var monitors []Monitor
 
 	enumProc := syscall.NewCallback(func(hMonitor windows.Handle, hdcMonitor windows.Handle, lprcMonitor *RECT, lParam uintptr) uintptr {
-		log.Printf("DEBUG: Enumerating monitor: %v\n", hMonitor)
+		// log.Printf("DEBUG: Enumerating monitor: %v\n", hMonitor)
 		var mi MONITORINFO
 		mi.CbSize = uint32(unsafe.Sizeof(mi))
 		ret, _, _ := procGetMonitorInfo.Call(
@@ -86,7 +86,7 @@ func GetMonitors() ([]Monitor, error) {
 			Info:     mi,
 			Center:   calculateMonitorCenter(mi),
 		})
-		log.Printf("DEBUG: Added monitor: %+v\n", mi)
+		// log.Printf("DEBUG: Added monitor: %+v\n", mi)
 		return 1 // Continue enumeration
 	})
 
@@ -106,7 +106,7 @@ func GetMonitors() ([]Monitor, error) {
 }
 
 func GetActiveWindow() (windows.Handle, error) {
-	log.Println("DEBUG: Entering GetActiveWindow()")
+	// log.Println("DEBUG: Entering GetActiveWindow()")
 	ret, _, err := procGetForegroundWindow.Call()
 	if ret == 0 {
 		log.Printf("DEBUG: GetForegroundWindow failed: %v\n", err)
@@ -117,7 +117,7 @@ func GetActiveWindow() (windows.Handle, error) {
 }
 
 func GetWindowRectWrapper(hwnd windows.Handle) (*RECT, error) {
-	log.Printf("DEBUG: Entering GetWindowRectWrapper() for handle: %v\n", hwnd)
+	// log.Printf("DEBUG: Entering GetWindowRectWrapper() for handle: %v\n", hwnd)
 	var rect RECT
 	ret, _, err := procGetWindowRect.Call(
 		uintptr(hwnd),
@@ -127,7 +127,7 @@ func GetWindowRectWrapper(hwnd windows.Handle) (*RECT, error) {
 		log.Printf("DEBUG: GetWindowRect failed: %v\n", err)
 		return nil, fmt.Errorf("GetWindowRect failed: %v", err)
 	}
-	log.Printf("DEBUG: Window rect: %+v\n", rect)
+	// log.Printf("DEBUG: Window rect: %+v\n", rect)
 	return &rect, nil
 }
 

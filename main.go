@@ -143,7 +143,7 @@ func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 				// log.Printf("Down %v\n", k.VKCode)
 				keyDownMap[key] = true
 				// fmt.Println(keyDownMap)
-
+				// TODO: There is a bug where simpler hotkeys are detected while a more complex hotkey is pressed
 				// If control and right arrow are pressed
 				if time.Since(lastMove) > 50*time.Millisecond {
 					if config.KeyBindings.MoveRight.Down(keyDownMap) {
@@ -195,7 +195,16 @@ func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 						lastMove = time.Now()
 					} else if config.KeyBindings.RestoreWindow.Down(keyDownMap) {
 						log.Println("Hotkey Restore Window Pressed")
-						window.RRestoreActiveWindow(nil, false)
+						// window.RRestoreActiveWindow(nil, false)
+						maximized, err := window.IsActiveWindowMaximized(nil)
+						if err != nil {
+							log.Println("Error checking if window is maximized:", err)
+							continue
+						}
+						if maximized {
+							log.Println("Window is maximized, restoring window.")
+							window.RestoreActiveWindow(nil, false)
+						}
 						lastMove = time.Now()
 					}
 				}

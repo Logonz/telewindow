@@ -16,6 +16,7 @@ func IsDWMCompositionEnabled() (bool, error) {
 	if hr != 0 {
 		return false, fmt.Errorf("DwmIsCompositionEnabled failed: HRESULT=0x%X", hr)
 	}
+	log.Printf("DEBUG: DWM composition enabled: %v\n", enabled != 0)
 	return enabled != 0, nil
 }
 

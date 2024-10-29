@@ -39,13 +39,13 @@
       "ctrl": true,
       "alt": true,
       "shift": true,
-      "key": "VK_NUMPAD4"
+      "key": "VK_NUMPAD7"
     },
     "splitRight": {
       "ctrl": true,
       "alt": true,
       "shift": true,
-      "key": "VK_NUMPAD6"
+      "key": "VK_NUMPAD9"
     },
     "splitUp": {
       "ctrl": true,
