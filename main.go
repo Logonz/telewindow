@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"telewindow/lumberjack"
@@ -39,14 +40,22 @@ const (
 )
 
 func main() {
+	// Get Exe path
+	ex, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+	exPath := filepath.Dir(ex)
+	log.Println("Exe path:", exPath, fmt.Sprintf("%s/telewindow.log", exPath))
+
 	// Create a multi-writer that writes to both file and stdout
-	multiWriter := io.MultiWriter(os.Stdout, &lumberjack.Logger{
-		Filename:   "./telewindow.log",
+	multiWriter := io.MultiWriter(&lumberjack.Logger{
+		Filename:   fmt.Sprintf("%s/telewindow.log", exPath),
 		MaxSize:    1, // megabytes
 		MaxBackups: 5,
 		MaxAge:     28,    //days
 		Compress:   false, // disabled by default
-	})
+	}, os.Stdout)
 
 	// Set the output of the default logger to the multi-writer
 	log.SetOutput(multiWriter)
