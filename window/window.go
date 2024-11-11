@@ -2,7 +2,6 @@ package window
 
 import (
 	"log"
-	"math"
 
 	"golang.org/x/sys/windows"
 )
@@ -286,6 +285,12 @@ func SplitActiveWindow(direction int) {
 	}
 	log.Printf("DEBUG: Current monitor: %+v\n", currentMonitor.Info.RCMonitor)
 
+	// Calculate the difference between the window's position and the monitor's position
+	// This is because they are minus values so we need to add them to the new position
+	rectDiff := *rect
+	rectDiff.Left = rectDiff.Left - currentMonitor.Info.RCMonitor.Left
+	rectDiff.Right = rectDiff.Right - currentMonitor.Info.RCMonitor.Right
+
 	// 3. Get the monitor's dimensions
 	monitorRect := currentMonitor.Info.RCMonitor
 
@@ -301,9 +306,11 @@ func SplitActiveWindow(direction int) {
 		newY = rect.Top
 		newHeight = rect.Bottom - rect.Top
 		newWidth = (monitorRect.Right - monitorRect.Left) / 2
-		if rect.Left < 0 {
-			newWidth += int32(math.Abs(float64(rect.Left)))
-		}
+		// if rect.Left < 0 {
+		// 	newWidth += int32(math.Abs(float64(rect.Left)))
+		// }
+		// newX = newX + rectDiff.Left
+		newWidth += rectDiff.Right * 2
 	} else if direction == 1 { // Right
 		// newX = monitorRect.Left + (monitorRect.Right-monitorRect.Left)/2
 		// newY = monitorRect.Top
@@ -313,9 +320,12 @@ func SplitActiveWindow(direction int) {
 		newY = rect.Top
 		newHeight = rect.Bottom - rect.Top
 		newWidth = (monitorRect.Right - monitorRect.Left) / 2
-		if rect.Left < 0 {
-			newX -= int32(math.Abs(float64(rect.Left)))
-		}
+		// if rect.Left < 0 {
+		// 	newX -= int32(math.Abs(float64(rect.Left)))
+		// 	// newWidth += int32(math.Abs(float64(rect.Left)))
+		// }
+		newX += rectDiff.Left * 2
+		newWidth += rectDiff.Right * 2
 	} else if direction == -2 { // Up
 		// TODO: Fix the up direction
 		newX = monitorRect.Left
@@ -335,30 +345,54 @@ func SplitActiveWindow(direction int) {
 
 	log.Printf("DEBUG: New window position: x=%d, y=%d, width=%d, height=%d\n", newX, newY, newWidth, newHeight)
 
-	ret, _, err := procSetWindowPos.Call(
-		uintptr(activeWindow),
-		0,
-		uintptr(newX),
-		uintptr(newY),
-		uintptr(newWidth),
-		uintptr(newHeight),
-		SWP_SHOWWINDOW,
-	)
-	if ret == 0 {
-		log.Println("DEBUG: MoveWindow failed:", err)
-		return
-	}
-
-	// Update the rect to the moved rect
-	// rect, err = GetWindowRectWrapper(activeWindow)
-	// if err != nil {
-	// 	log.Println("DEBUG: Error getting window rect:", err)
+	// * This is the original code that was replaced by the code below
+	// ret, _, err := procSetWindowPos.Call(
+	// 	uintptr(activeWindow),
+	// 	0,
+	// 	uintptr(newX),
+	// 	uintptr(newY),
+	// 	uintptr(newWidth),
+	// 	uintptr(newHeight),
+	// 	SWP_SHOWWINDOW,
+	// )
+	// if ret == 0 {
+	// 	log.Println("DEBUG: MoveWindow failed:", err)
 	// 	return
 	// }
 
-	// Save the rect to the setRects
-	// AddSetRect(activeWindow, rect)
-	// log.Println(setRects)
+	// Fixes a bug with the window not resizing properly (VScode suffers from this)
+	count := 0
+	for {
+		rect, err = GetWindowRectWrapper(activeWindow)
+		if err != nil {
+			log.Println("DEBUG: Error getting window rect:", err)
+			return
+		}
+		log.Println(rect, rect.Right-rect.Left, rect.Bottom-rect.Top)
+
+		if rect.Right-rect.Left != newWidth {
+			ret, _, err := procSetWindowPos.Call(
+				uintptr(activeWindow),
+				0,
+				uintptr(newX),
+				uintptr(newY),
+				uintptr(newWidth),
+				uintptr(newHeight),
+				SWP_SHOWWINDOW,
+			)
+			if ret == 0 {
+				log.Println("DEBUG: MoveWindow failed:", err)
+				return
+			}
+		} else {
+			break
+		}
+		count++
+		if count >= 20 {
+			// Safety break
+			break
+		}
+	}
 
 	log.Println("DEBUG: Window moved successfully to", direction)
 }
