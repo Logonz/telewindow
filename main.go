@@ -46,11 +46,11 @@ func main() {
 		log.Fatal(err)
 	}
 	exPath := filepath.Dir(ex)
-	log.Println("Exe path:", exPath, fmt.Sprintf("%s/telewindow.log", exPath))
+	log.Println("Exe path:", exPath, fmt.Sprintf("%s%stelewindow.log", exPath, string(os.PathSeparator)))
 
 	// Create a multi-writer that writes to both file and stdout
 	multiWriter := io.MultiWriter(&lumberjack.Logger{
-		Filename:   fmt.Sprintf("%s/telewindow.log", exPath),
+		Filename:   fmt.Sprintf("%s%stelewindow.log", exPath, string(os.PathSeparator)),
 		MaxSize:    1, // megabytes
 		MaxBackups: 5,
 		MaxAge:     28,    //days
@@ -119,6 +119,11 @@ func onExit() {
 	log.Println("TeleWindow exited.")
 }
 
+// keyboardHook is a function that installs a keyboard hook and handles keyboard events.
+// It listens for keyboard events on the provided signalChan and performs various actions
+// based on the key combinations detected, such as moving the active window, toggling
+// window maximization, and splitting the active window. The function returns an error
+// if the keyboard hook cannot be installed.
 func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 	// Buffer size is depends on your need. The 100 is placeholder value.
 	keyboardChan := make(chan types.KeyboardEvent, 100)
@@ -148,6 +153,8 @@ func keyboardHook(signalChan chan os.Signal, config *window.Config) error {
 			up := msg == WM_KEYUP
 
 			keyDownMapMutex.Lock()
+			// Checks if the key is being pressed down for the first time. This is used to track
+			// the state of the keyboard and detect when hotkeys are pressed.
 			if down && !keyDownMap[key] {
 				// log.Printf("Down %v\n", k.VKCode)
 				keyDownMap[key] = true

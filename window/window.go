@@ -65,14 +65,6 @@ type WINDOWPLACEMENT struct {
 	RcNormalPosition RECT
 }
 
-// type NatrualRect struct {
-// 	lastNatualRect *RECT
-// 	monitor        *Monitor
-// }
-
-// var setRects = make(map[windows.Handle][]*RECT)
-// var lastNatualRects = make(map[windows.Handle]*NatrualRect)
-
 func MoveActiveWindow(direction int) {
 	log.Printf("DEBUG: Entering MoveActiveWindow() with direction: %d\n", direction)
 	activeWindow, err := GetActiveWindow()
@@ -130,17 +122,8 @@ func MoveActiveWindow(direction int) {
 	}
 	log.Printf("DEBUG: Target monitor: %+v\n", targetMonitor.Info.RCMonitor)
 
-	if maximized {
-		log.Println("DEBUG: Window is maximized, restoring window.")
-		RestoreActiveWindow(&activeWindow, true)
-
-		// Shrink the window by 5% and the newX and newY to make it centered
-		// amount := 0.02 // Percentage
-		// newWidth = int32(float64(newWidth) * (1 - amount))
-		// newHeight = int32(float64(newHeight) * (1 - amount))
-		// newX = newX + int32(float64(newWidth)*amount/2)
-		// newY = newY + int32(float64(newHeight)*amount/2)
-	}
+	log.Println("DEBUG: Window is maximized, restoring window.")
+	RestoreActiveWindow(&activeWindow, true)
 
 	// Refresh the window rect after restoring
 	rect, err = GetWindowRectWrapper(activeWindow)
@@ -192,19 +175,6 @@ func MoveActiveWindow(direction int) {
 		newY = targetMonitor.Info.RCMonitor.Top + int32(relativeYPercentage*targetMonitorHeight)
 	}
 
-	// Save the window's current position and size
-	// if ok, _ := windowRects[activeWindow]; ok != nil {
-	// 	// Only save the window if the current position and size is not equal to the new position
-	// 	win := windowRects[activeWindow]
-	// 	if win.lastSetRect == nil || win.lastSetRect.Left != newX || win.lastSetRect.Top != newY || win.lastSetRect.Right != newWidth || win.lastSetRect.Bottom != newHeight {
-	// 		log.Println("DEBUG: Saving window position and size.")
-	// 		win.lastSetRect = &RECT{Left: newX, Top: newY, Right: newWidth, Bottom: newHeight}
-	// 		win.lastNatualRect = rect
-	// 	}
-	// } else {
-	// 	windowRects[activeWindow] = &window{lastSetRect: &RECT{Left: newX, Top: newY, Right: newWidth, Bottom: newHeight}, lastNatualRect: rect}
-	// }
-
 	log.Printf("DEBUG: New window position: x=%d, y=%d, width=%d, height=%d\n", newX, newY, newWidth, newHeight)
 
 	log.Println("DEBUG: Moving window.")
@@ -230,6 +200,8 @@ func MoveActiveWindow(direction int) {
 	log.Println("DEBUG: Window moved successfully.")
 }
 
+// ? SplitActiveWindow splits the active window in the specified direction
+// ? direction: -1 = left, 1 = right, -2 = up, 2 = down
 func SplitActiveWindow(direction int) {
 	log.Println("DEBUG: Entering SplitWindow() with direction:", direction)
 	// 1. Get the active window
@@ -266,7 +238,6 @@ func SplitActiveWindow(direction int) {
 		log.Println("DEBUG: Error getting window rect:", err)
 		return
 	}
-	log.Println(rect)
 
 	var currentMonitor *Monitor
 	var maxOverlap int64 = 0
@@ -287,78 +258,67 @@ func SplitActiveWindow(direction int) {
 
 	// Calculate the difference between the window's position and the monitor's position
 	// This is because they are minus values so we need to add them to the new position
+	// ? Basically it is a quick way to do monitorWidth - windowWidth, monitorHeight - windowHeight etc
 	rectDiff := *rect
 	rectDiff.Left = rectDiff.Left - currentMonitor.Info.RCMonitor.Left
 	rectDiff.Right = rectDiff.Right - currentMonitor.Info.RCMonitor.Right
+	rectDiff.Top = rectDiff.Top - currentMonitor.Info.RCMonitor.Top
+	rectDiff.Bottom = rectDiff.Bottom - currentMonitor.Info.RCMonitor.Bottom
+
+	log.Println("DEBUG: Rect diff:", rectDiff)
 
 	// 3. Get the monitor's dimensions
 	monitorRect := currentMonitor.Info.RCMonitor
+	log.Println("DEBUG: Monitor rect:", monitorRect)
 
 	// 4. Calculate the new window position and size
 	var newX, newY, newWidth, newHeight int32
 
 	if direction == -1 { // Left
-		// newX = monitorRect.Left
-		// newY = monitorRect.Top
-		// newHeight = monitorRect.Bottom - monitorRect.Top
-		// newWidth = (monitorRect.Right - monitorRect.Left) / 2
 		newX = rect.Left
 		newY = rect.Top
 		newHeight = rect.Bottom - rect.Top
 		newWidth = (monitorRect.Right - monitorRect.Left) / 2
-		// if rect.Left < 0 {
-		// 	newWidth += int32(math.Abs(float64(rect.Left)))
-		// }
-		// newX = newX + rectDiff.Left
+		// Adjust to make the windows take up half the screen (When maximized the border is invisible, so we need to adjust)
 		newWidth += rectDiff.Right * 2
 	} else if direction == 1 { // Right
-		// newX = monitorRect.Left + (monitorRect.Right-monitorRect.Left)/2
-		// newY = monitorRect.Top
-		// newHeight = monitorRect.Bottom - monitorRect.Top
-		// newWidth = (monitorRect.Right - monitorRect.Left) / 2
 		newX = monitorRect.Left + (rect.Right-rect.Left)/2
 		newY = rect.Top
 		newHeight = rect.Bottom - rect.Top
 		newWidth = (monitorRect.Right - monitorRect.Left) / 2
-		// if rect.Left < 0 {
-		// 	newX -= int32(math.Abs(float64(rect.Left)))
-		// 	// newWidth += int32(math.Abs(float64(rect.Left)))
-		// }
+		// Adjust to make the windows take up half the screen (When maximized the border is invisible, so we need to adjust)
 		newX += rectDiff.Left * 2
 		newWidth += rectDiff.Right * 2
 	} else if direction == -2 { // Up
-		// TODO: Fix the up direction
-		newX = monitorRect.Left
+		// ? These are a bit funky... there seems to be a bar at the top of the window
+		// ? For VSCode its white, firefox is black so unknown how to handle this
+		newX = rect.Left
+		// Pin to the top of the monitor (similar to how "Left" pins to rect.Left)
 		newY = monitorRect.Top
+		// Keep original window width
+		newWidth = rect.Right - rect.Left
+		// Use half monitor height
 		newHeight = (monitorRect.Bottom - monitorRect.Top) / 2
-		newWidth = monitorRect.Right - monitorRect.Left
+		// Adjust for taskbar
+		// newY -= rectDiff.Top
 	} else if direction == 2 { // Down
-		// TODO: Fix the down direction
-		newX = monitorRect.Left
-		newY = monitorRect.Top + (monitorRect.Bottom-monitorRect.Top)/2
+		// ? These are a bit funky... there seems to be a bar at the top of the window
+		// ? For VSCode its white, firefox is black so unknown how to handle this
+		newX = rect.Left
+		// Start halfway down the monitor (similar to how "Right" starts halfway across)
+		newY = monitorRect.Top + (rect.Bottom-rect.Top)/2
+		// Keep original window width
+		newWidth = rect.Right - rect.Left
+		// Use half monitor height
 		newHeight = (monitorRect.Bottom - monitorRect.Top) / 2
-		newWidth = monitorRect.Right - monitorRect.Left
+		// Adjust for taskbar
+		newHeight += rectDiff.Bottom
 	} else {
 		log.Println("DEBUG: Invalid direction. -1, 1, -2, 2.")
 		return
 	}
 
 	log.Printf("DEBUG: New window position: x=%d, y=%d, width=%d, height=%d\n", newX, newY, newWidth, newHeight)
-
-	// * This is the original code that was replaced by the code below
-	// ret, _, err := procSetWindowPos.Call(
-	// 	uintptr(activeWindow),
-	// 	0,
-	// 	uintptr(newX),
-	// 	uintptr(newY),
-	// 	uintptr(newWidth),
-	// 	uintptr(newHeight),
-	// 	SWP_SHOWWINDOW,
-	// )
-	// if ret == 0 {
-	// 	log.Println("DEBUG: MoveWindow failed:", err)
-	// 	return
-	// }
 
 	// Fixes a bug with the window not resizing properly (VScode suffers from this)
 	count := 0
@@ -370,7 +330,8 @@ func SplitActiveWindow(direction int) {
 		}
 		log.Println(rect, rect.Right-rect.Left, rect.Bottom-rect.Top)
 
-		if rect.Right-rect.Left != newWidth {
+		// if rect.Right-rect.Left != newWidth || rect.Bottom-rect.Top != newHeight {
+		if newX != rect.Left || newY != rect.Top || newWidth != rect.Right-rect.Left || newHeight != rect.Bottom-rect.Top {
 			ret, _, err := procSetWindowPos.Call(
 				uintptr(activeWindow),
 				0,
@@ -396,143 +357,3 @@ func SplitActiveWindow(direction int) {
 
 	log.Println("DEBUG: Window moved successfully to", direction)
 }
-
-// func AddSetRect(hwnd windows.Handle, rect *RECT) {
-// 	// Only add the rect if it is not already added
-// 	if setRects[hwnd] == nil {
-// 		setRects[hwnd] = []*RECT{rect}
-// 	} else {
-// 		found := false
-// 		for _, r := range setRects[hwnd] {
-// 			if r.Left == rect.Left && r.Top == rect.Top && r.Right == rect.Right && r.Bottom == rect.Bottom {
-// 				found = true
-// 				break
-// 			}
-// 		}
-// 		if !found {
-// 			log.Println("DEBUG: Rect not found, adding.", rect)
-// 			setRects[hwnd] = append(setRects[hwnd], rect)
-// 		} else {
-// 			log.Println("DEBUG: Rect already added.", rect)
-// 		}
-// 	}
-// }
-
-// func RRestoreActiveWindow(specificWindow *windows.Handle, disableAnimation bool) {
-// 	// 1. Get the active window
-// 	activeWindow, err := GetActiveWindow()
-// 	if err != nil {
-// 		log.Println("DEBUG: Error getting active window:", err)
-// 		return
-// 	}
-
-// 	// 2. Get the monitor that the window is on
-// 	monitors, err := GetMonitors()
-// 	if err != nil {
-// 		log.Println("DEBUG: Error getting monitors:", err)
-// 		return
-// 	}
-
-// 	// Find the monitor that the window is currently on
-// 	rect, err := GetWindowRectWrapper(activeWindow)
-// 	if err != nil {
-// 		log.Println("DEBUG: Error getting window rect:", err)
-// 		return
-// 	}
-// 	log.Println(rect)
-
-// 	var targetMonitor *Monitor
-// 	var maxOverlap int64 = 0
-
-// 	for _, m := range monitors {
-// 		overlap := calculateOverlap(rect, &m.Info.RCMonitor)
-// 		if overlap > maxOverlap {
-// 			maxOverlap = overlap
-// 			targetMonitor = &m
-// 		}
-// 	}
-
-// 	if targetMonitor == nil {
-// 		log.Println("DEBUG: Current monitor not found.")
-// 		return
-// 	}
-// 	log.Printf("DEBUG: Current monitor: %+v\n", targetMonitor.Info.RCMonitor)
-
-// 	// 3. Get the monitor's dimensions
-// 	monitorRect := targetMonitor.Info.RCMonitor
-
-// 	// 4. Calculate the new window position and size
-// 	var newX, newY, newWidth, newHeight int32
-
-// 	lastNaturalRect := lastNatualRects[activeWindow]
-// 	if lastNaturalRect == nil {
-// 		log.Println("DEBUG: Last natural rect not found.")
-// 		return
-// 	} else {
-// 		previousMonitor := lastNaturalRect.monitor
-// 		if SizeByPixel {
-// 			// Calculate the window's current size and position pixel based
-// 			newWidth = lastNaturalRect.lastNatualRect.Right - lastNaturalRect.lastNatualRect.Left
-// 			newHeight = lastNaturalRect.lastNatualRect.Bottom - lastNaturalRect.lastNatualRect.Top
-
-// 			relativeX := lastNaturalRect.lastNatualRect.Left - previousMonitor.Info.RCMonitor.Left
-// 			relativeY := lastNaturalRect.lastNatualRect.Top - previousMonitor.Info.RCMonitor.Top
-
-// 			// Pixel based calculation
-// 			newX = monitorRect.Left + relativeX
-// 			newY = monitorRect.Top + relativeY
-// 		} else {
-// 			// Calculate the percentage of the window's size relative to the current monitor
-// 			previousMonitorWidth := float64(previousMonitor.Info.RCMonitor.Right - previousMonitor.Info.RCMonitor.Left)
-// 			previousMonitorHeight := float64(previousMonitor.Info.RCMonitor.Bottom - previousMonitor.Info.RCMonitor.Top)
-// 			windowWidth := float64(lastNaturalRect.lastNatualRect.Right - lastNaturalRect.lastNatualRect.Left)
-// 			windowHeight := float64(lastNaturalRect.lastNatualRect.Bottom - lastNaturalRect.lastNatualRect.Top)
-
-// 			widthPercentage := windowWidth / previousMonitorWidth
-// 			heightPercentage := windowHeight / previousMonitorHeight
-
-// 			// Calculate the new size based on the target monitor's dimensions
-// 			targetMonitorWidth := float64(monitorRect.Right - monitorRect.Left)
-// 			targetMonitorHeight := float64(monitorRect.Bottom - monitorRect.Top)
-
-// 			newWidth = int32(widthPercentage * targetMonitorWidth)
-// 			newHeight = int32(heightPercentage * targetMonitorHeight)
-
-// 			// Calculate the new position
-// 			relativeXPercentage := float64(lastNaturalRect.lastNatualRect.Left-previousMonitor.Info.RCMonitor.Left) / previousMonitorWidth
-// 			relativeYPercentage := float64(lastNaturalRect.lastNatualRect.Top-previousMonitor.Info.RCMonitor.Top) / previousMonitorHeight
-
-// 			// Percentage based calculation
-// 			newX = monitorRect.Left + int32(relativeXPercentage*targetMonitorWidth)
-// 			newY = monitorRect.Top + int32(relativeYPercentage*targetMonitorHeight)
-// 		}
-// 	}
-
-// 	log.Printf("DEBUG: New window position: x=%d, y=%d, width=%d, height=%d\n", newX, newY, newWidth, newHeight)
-
-// 	// 5. If window is maximized, restore it
-// 	maximized, err := IsActiveWindowMaximized(&activeWindow)
-// 	if err != nil {
-// 		log.Println("DEBUG: Error checking if window is maximized:", err)
-// 		return
-// 	}
-// 	if maximized {
-// 		log.Println("DEBUG: Window is maximized, restoring window.")
-// 		RestoreActiveWindow(&activeWindow, true)
-// 	}
-
-// 	// 6. Move and resize the window
-// 	log.Println("DEBUG: Moving and resizing window.")
-// 	ret, _, err := procMoveWindow.Call(
-// 		uintptr(activeWindow),
-// 		uintptr(newX),
-// 		uintptr(newY),
-// 		uintptr(newWidth),
-// 		uintptr(newHeight),
-// 		1, // Repaint
-// 	)
-// 	if ret == 0 {
-// 		log.Println("DEBUG: MoveWindow failed:", err)
-// 		return
-// 	}
-// }
