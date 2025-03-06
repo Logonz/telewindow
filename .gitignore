@@ -1,7 +1,7 @@
 *.zip
-*.log
+*.log*
 *.exe
 *.lnk
 *.txt
-
+*.syso*
 build
