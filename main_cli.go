@@ -5,12 +5,27 @@
 package main
 
 import (
+	"io"
 	"log"
 	"os"
+	"telewindow/lumberjack"
 	"telewindow/window"
 )
 
 func main() {
+
+	// Create a multi-writer that writes to both file and stdout
+	multiWriter := io.MultiWriter(&lumberjack.Logger{
+		Filename:   "./telewindow.log",
+		MaxSize:    1, // megabytes
+		MaxBackups: 5,
+		MaxAge:     28,    //days
+		Compress:   false, // disabled by default
+	})
+
+	// Set the output of the default logger to the multi-writer
+	log.SetOutput(multiWriter)
+
 	if len(os.Args) < 2 {
 		log.Println("Usage: telewindow [command]")
 		log.Println("Commands:")
@@ -30,6 +45,8 @@ func main() {
 	}
 
 	command := os.Args[1]
+
+	log.Println("Received command:", command)
 
 	switch command {
 	case "-Right":
@@ -56,7 +73,7 @@ func main() {
 		maximized, err := window.IsActiveWindowMaximized(nil)
 		if err != nil {
 			log.Println("Error checking if window is maximized:", err)
-			os.Exit(1)
+			exit(1)
 		}
 		if maximized {
 			window.RestoreActiveWindow(nil)
@@ -65,9 +82,18 @@ func main() {
 		}
 	case "-NoOp":
 		// Do nothing
-		os.Exit(0)
+		log.Println("No operation performed.")
+		exit(0)
 	default:
 		log.Println("Unknown command:", command)
-		os.Exit(1)
+		exit(1)
 	}
+
+	exit(0)
+}
+
+func exit(code int) {
+	log.Println("")
+	log.Println("")
+	os.Exit(code)
 }
