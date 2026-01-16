@@ -1,3 +1,7 @@
+// main_service.go
+//go:build service
+// +build service
+
 package main
 
 import (
@@ -22,14 +26,6 @@ import (
 var iconData []byte
 
 var signalChan chan os.Signal = make(chan os.Signal, 1)
-
-// Direction constants
-const (
-	LeftDirection  = -1
-	RightDirection = 1
-	UpDirection    = -2
-	DownDirection  = 2
-)
 
 // Constants for Windows API
 const (

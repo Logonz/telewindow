@@ -7,7 +7,7 @@ then
 fi
 
 # Add the icon as a resource to the executable and add the manifest
-rsrc -ico assets/dock-window.ico -manifest app.manifest -o rsrc.syso
+rsrc -ico assets/dock-window.ico -manifest app-cli.manifest -o rsrc.syso
 
 # Build for Windows without console
-go build -tags service -ldflags="-H windowsgui" -o telewindow.exe
+go build -tags cli -ldflags="-H windowsgui" -o telewindow-cli.exe
